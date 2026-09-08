@@ -24,21 +24,17 @@ const seedData = async () => {
     await ReferenceRecord.deleteMany();
 
     // Create users
-    const salt = await bcrypt.genSalt(10);
-    const adminPassword = await bcrypt.hash('admin123', salt);
-    const officerPassword = await bcrypt.hash('officer123', salt);
-
     const admin = await User.create({
       name: 'Admin',
       email: 'admin@docscreen.com',
-      passwordHash: adminPassword,
+      passwordHash: 'admin123',
       role: 'ADMIN'
     });
 
     const officer = await User.create({
       name: 'Officer',
       email: 'officer@docscreen.com',
-      passwordHash: officerPassword,
+      passwordHash: 'officer123',
       role: 'OFFICER'
     });
 
@@ -70,7 +66,7 @@ const seedData = async () => {
     ]);
 
     logger.info('Reference records seeded successfully');
-    
+
     process.exit();
   } catch (error) {
     logger.error(`Seed error: ${error.message}`);

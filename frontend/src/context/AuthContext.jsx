@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await getMe();
-          setUser(res.data);
+          setUser(res.data.data);
         } catch (error) {
           console.error("Auth validation failed", error);
           localStorage.removeItem('token');
@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await apiLogin(email, password);
-      const { token, user: userData } = res.data;
+      const { token, ...userData } = res.data.data;
       localStorage.setItem('token', token);
       setToken(token);
       setUser(userData);
@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const res = await apiRegister(name, email, password);
-      const { token, user: userData } = res.data;
+      const { token, ...userData } = res.data.data;
       localStorage.setItem('token', token);
       setToken(token);
       setUser(userData);
