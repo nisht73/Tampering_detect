@@ -70,6 +70,9 @@ const processScreening = async (screeningId) => {
     screening.ocrResult = combinedOcr;
     screening.tamperingResult = combinedTampering;
     screening.faceResult = combinedFace;
+    screening.documentResults = documentsData.flatMap(({ doc, documents = [] }) =>
+      documents.map(result => ({ sourceFile: doc.originalFileName, ...result }))
+    );
     screening.validationResult = { ...validationResult, crossValidation, expiryStatus, referenceResult };
     screening.riskResult = riskResult;
     

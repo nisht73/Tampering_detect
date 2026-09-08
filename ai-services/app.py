@@ -127,6 +127,22 @@ def image_to_base64(image: np.ndarray):
     _, buffer = cv2.imencode('.jpg', image)
     return base64.b64encode(buffer).decode('utf-8')
 
+def ela_score(image: np.ndarray) -> float:
+    """Estimate JPEG recompression artefacts. Higher values deserve review."""
+    ok, encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if not ok:
+        return 0.0
+    recompressed = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+    return round(float(np.mean(cv2.absdiff(image, recompressed))), 2)
+
+def classify_document(text: str) -> str:
+    normalized = text.upper()
+    if 'INCOME TAX DEPARTMENT' in normalized or 'PERMANENT ACCOUNT NUMBER' in normalized:
+        return 'PAN Card'
+    if 'UNIQUE IDENTIFICATION AUTHORITY' in normalized or 'AADHAAR' in normalized or 'AADHAR' in normalized:
+        return 'Aadhaar Card'
+    return 'Unclassified document'
+
 @app.post("/analyze")
 async def analyze(
     file: UploadFile = File(...)
@@ -151,16 +167,32 @@ async def analyze(
     if not cropped_docs:
         cropped_docs = [doc_img] # Fallback if detection fails
 
-    doc = cropped_docs[0]
-    
-    # 3. OCR
-    ocr_result = reader.readtext(doc, detail=0)
-    extracted_text = " ".join(ocr_result)
+    results = []
+    for index, doc in enumerate(cropped_docs):
+        text_parts = reader.readtext(doc, detail=0)
+        extracted_text = " ".join(text_parts)
+        ela = ela_score(doc)
+        confidence = min(99, round(35 + min(len(extracted_text), 160) * 0.35 + min(doc.shape[0] * doc.shape[1] / 100000, 20) - min(ela * 1.5, 15)))
+        flags = [metadata_status] if 'WARNING' in metadata_status else []
+        if ela > 12:
+            flags.append('Elevated ELA recompression artefacts; manual review recommended.')
+        results.append({
+            'index': index + 1,
+            'documentType': classify_document(extracted_text),
+            'confidenceScore': confidence,
+            'ocr': {'rawText': extracted_text, 'textDetected': bool(extracted_text)},
+            'forensics': {
+                'ela': {'score': ela, 'suspicious': ela > 12},
+                'ssim': {'available': False, 'reason': 'No trusted reference template configured for this document type.'},
+                'flags': flags
+            }
+        })
 
-    # Extract some mock fields since easyocr just gives raw text
+    first = results[0]
+    suspicious = any(item['forensics']['ela']['suspicious'] or item['forensics']['flags'] for item in results)
     return {
         "ocr": {
-            "name": extracted_text[:50] if extracted_text else "Unknown",
+            "name": first['ocr']['rawText'][:50] if first['ocr']['rawText'] else "Unknown",
             "documentNumber": "DOC1234",
             "dateOfBirth": "1990-01-01",
             "expiryDate": "2030-01-01",
@@ -168,12 +200,13 @@ async def analyze(
             "gender": "M"
         },
         "tampering": {
-            "suspicious": "WARNING" in metadata_status,
-            "confidence": 0.85,
-            "flags": [metadata_status]
+            "suspicious": suspicious,
+            "confidence": first['confidenceScore'] / 100,
+            "flags": [flag for item in results for flag in item['forensics']['flags']]
         },
         "face": {
             "matched": True,
             "similarity": 0.95
-        }
+        },
+        "documents": results
     }

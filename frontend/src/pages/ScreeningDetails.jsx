@@ -16,7 +16,7 @@ const ScreeningDetails = () => {
     const fetchDetails = async () => {
       try {
         const res = await getScreening(id);
-        setData(res.data);
+        setData(res.data.data);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load screening details');
       } finally {
@@ -56,6 +56,7 @@ const ScreeningDetails = () => {
   );
 
   const { extractedData = {}, validation = {}, aiAnalysis = {}, riskAssessment = {} } = data;
+  const documentResults = data.documentResults || [];
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -78,6 +79,25 @@ const ScreeningDetails = () => {
           <Loading text="AI is actively analyzing the documents. Please wait..." />
         </div>
       ) : (
+        <>
+        {documentResults.length > 0 && (
+          <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">Per-document OCR & forensic report</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {documentResults.map((result, index) => (
+                <article key={index} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex justify-between gap-3"><h3 className="font-semibold text-slate-800">{result.documentType}</h3><span className="text-sm font-bold text-indigo-700">{result.confidenceScore}% confidence</span></div>
+                  <p className="mt-2 text-xs text-slate-500 line-clamp-3">{result.ocr?.rawText || 'No readable text detected.'}</p>
+                  <dl className="mt-3 space-y-1 text-sm text-slate-600">
+                    <div className="flex justify-between"><dt>ELA</dt><dd>{result.forensics?.ela?.score ?? '—'} {result.forensics?.ela?.suspicious ? '(review)' : '(clear)'}</dd></div>
+                    <div className="flex justify-between"><dt>SSIM</dt><dd>{result.forensics?.ssim?.available ? result.forensics.ssim.score : 'Template required'}</dd></div>
+                  </dl>
+                  {result.forensics?.flags?.length > 0 && <ul className="mt-3 list-disc pl-5 text-xs text-red-600">{result.forensics.flags.map((flag, flagIndex) => <li key={flagIndex}>{flag}</li>)}</ul>}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* Risk Assessment */}
@@ -186,6 +206,7 @@ const ScreeningDetails = () => {
           </div>
 
         </div>
+        </>
       )}
     </div>
   );

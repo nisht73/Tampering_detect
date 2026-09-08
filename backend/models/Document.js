@@ -12,7 +12,7 @@ const documentSchema = new mongoose.Schema({
   },
   documentType: {
     type: String,
-    enum: ['passport', 'visa', 'national_id', 'driving_licence', 'permit'],
+    enum: ['passport', 'visa', 'national_id', 'driving_licence', 'permit', 'supporting', 'face_image', 'composite'],
     required: true
   },
   filePath: {

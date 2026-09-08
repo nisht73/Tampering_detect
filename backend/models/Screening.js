@@ -30,6 +30,7 @@ const screeningSchema = new mongoose.Schema({
   tamperingResult: mongoose.Schema.Types.Mixed,
   faceResult: mongoose.Schema.Types.Mixed,
   riskResult: mongoose.Schema.Types.Mixed,
+  documentResults: mongoose.Schema.Types.Mixed,
   completedAt: Date
 }, {
   timestamps: true

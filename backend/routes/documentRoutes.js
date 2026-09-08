@@ -7,7 +7,8 @@ const router = express.Router();
 
 router.use(protect);
 
-router.post('/upload', upload.single('document'), uploadDocument);
+// The client sends the binary in the `file` multipart field.
+router.post('/upload', upload.single('file'), uploadDocument);
 router.get('/:id', getDocument);
 router.delete('/:id', deleteDocument);
 

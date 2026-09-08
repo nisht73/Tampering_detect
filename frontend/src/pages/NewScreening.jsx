@@ -5,19 +5,14 @@ import FileUpload from '../components/FileUpload';
 import { Shield, ChevronRight, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const DOC_TYPES = ['Passport', 'Visa', 'National ID', 'Driving Licence', 'Permit'];
-
 const NewScreening = () => {
-  const [docType, setDocType] = useState('Passport');
-  const [primaryDoc, setPrimaryDoc] = useState(null);
-  const [additionalDoc, setAdditionalDoc] = useState(null);
-  const [faceImage, setFaceImage] = useState(null);
+  const [compositeImage, setCompositeImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
-    if (!primaryDoc) {
-      toast.error('Primary document is required');
+    if (!compositeImage) {
+      toast.error('Please upload one image containing the documents to screen');
       return;
     }
 
@@ -26,36 +21,16 @@ const NewScreening = () => {
       const documentIds = [];
       let faceImageId = null;
 
-      // Upload Primary Doc
-      const fdPrimary = new FormData();
-      fdPrimary.append('file', primaryDoc);
-      fdPrimary.append('documentType', docType);
-      fdPrimary.append('isPrimary', 'true');
-      const resPrimary = await uploadDocument(fdPrimary);
-      documentIds.push(resPrimary.data.id || resPrimary.data._id);
-
-      // Upload Additional Doc if any
-      if (additionalDoc) {
-        const fdAdd = new FormData();
-        fdAdd.append('file', additionalDoc);
-        fdAdd.append('documentType', 'Supporting');
-        const resAdd = await uploadDocument(fdAdd);
-        documentIds.push(resAdd.data.id || resAdd.data._id);
-      }
-
-      // Upload Face Image if any
-      if (faceImage) {
-        const fdFace = new FormData();
-        fdFace.append('file', faceImage);
-        fdFace.append('documentType', 'Face Image');
-        const resFace = await uploadDocument(fdFace);
-        faceImageId = resFace.data.id || resFace.data._id;
-      }
+      const formData = new FormData();
+      formData.append('file', compositeImage);
+      formData.append('documentType', 'composite');
+      const uploadResponse = await uploadDocument(formData);
+      documentIds.push(uploadResponse.data.data._id);
 
       // Create Screening
-      const resScreening = await createScreening({ documentIds, faceImageId });
+      const resScreening = await createScreening({ documentIds, faceImageId, documentType: 'composite' });
       toast.success('Screening initiated successfully');
-      navigate(`/screening/${resScreening.data.id || resScreening.data._id}`);
+      navigate(`/screening/${resScreening.data.data.screeningId}`);
 
     } catch (error) {
       console.error(error);
@@ -78,62 +53,22 @@ const NewScreening = () => {
         </div>
 
         <div className="space-y-8">
-          {/* Step 1: Document Type */}
           <section>
-            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">1. Document Type</h3>
-            <div className="w-full sm:w-1/2">
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2 px-3 border bg-white"
-              >
-                {DOC_TYPES.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-          </section>
-
-          {/* Step 2: Primary Document */}
-          <section>
-            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">2. Primary Document <span className="text-red-500">*</span></h3>
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">Document image <span className="text-red-500">*</span></h3>
             <FileUpload 
-              onFileSelect={setPrimaryDoc} 
-              accept="image/*,application/pdf"
-              label="Upload the main identification document (Image or PDF)"
+              onFileSelect={setCompositeImage}
+              accept="image/jpeg,image/png,image/webp"
+              label="Upload one clear image containing all documents (for example, PAN and Aadhaar)"
               preview={true}
             />
+            <p className="mt-2 text-xs text-slate-500">The system separates visible documents, identifies likely PAN/Aadhaar cards, and runs OCR plus image-forensics checks on each one.</p>
           </section>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Step 3: Additional Document */}
-            <section>
-              <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">3. Supporting Document <span className="text-slate-400 normal-case text-xs">(Optional)</span></h3>
-              <FileUpload 
-                onFileSelect={setAdditionalDoc} 
-                accept="image/*,application/pdf"
-                label="Upload back side or supporting doc"
-                preview={true}
-              />
-            </section>
-
-            {/* Step 4: Face Image */}
-            <section>
-              <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">4. Presented Face <span className="text-slate-400 normal-case text-xs">(Optional)</span></h3>
-              <FileUpload 
-                onFileSelect={setFaceImage} 
-                accept="image/*"
-                label="Upload live face image for matching"
-                preview={true}
-              />
-            </section>
-          </div>
         </div>
 
         <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || !primaryDoc}
+            disabled={isSubmitting || !compositeImage}
             className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? (
