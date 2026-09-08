@@ -10,7 +10,7 @@ const AuditLogs = () => {
     const fetchLogs = async () => {
       try {
         const res = await getAuditLogs({ limit: 50 });
-        setLogs(res.data.items || res.data || []);
+        setLogs(res.data.data || []);
       } catch (error) {
         console.error('Failed to load audit logs');
       } finally {
@@ -23,10 +23,12 @@ const AuditLogs = () => {
   if (loading) return <Loading text="Loading audit logs..." />;
 
   const getActionColor = (action) => {
-    if (action.includes('LOGIN')) return 'bg-blue-100 text-blue-800';
-    if (action.includes('CREATE')) return 'bg-green-100 text-green-800';
-    if (action.includes('UPDATE')) return 'bg-yellow-100 text-yellow-800';
-    if (action.includes('DELETE')) return 'bg-red-100 text-red-800';
+    if (!action) return 'bg-slate-100 text-slate-800';
+    if (action.includes('LOGIN') || action.includes('LOGOUT')) return 'bg-blue-100 text-blue-800';
+    if (action.includes('COMPLETED')) return 'bg-green-100 text-green-800';
+    if (action.includes('CREATED') || action.includes('UPLOADED')) return 'bg-indigo-100 text-indigo-800';
+    if (action.includes('FAILED')) return 'bg-red-100 text-red-800';
+    if (action.includes('REQUESTED')) return 'bg-yellow-100 text-yellow-800';
     return 'bg-slate-100 text-slate-800';
   };
 
@@ -42,18 +44,18 @@ const AuditLogs = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Timestamp</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Target ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">IP / Details</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Screening ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
               {logs.map((log) => (
-                <tr key={log._id || log.id}>
+                <tr key={log._id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {new Date(log.createdAt).toLocaleString()}
+                    {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                    {log.user?.email || log.userId || 'System'}
+                    {log.userId?.name || log.userId?.email || 'System'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
@@ -61,10 +63,10 @@ const AuditLogs = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {log.targetId || '-'}
+                    {log.screeningId || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 truncate max-w-xs">
-                    {log.ipAddress || log.details || '-'}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    {log.status || '-'}
                   </td>
                 </tr>
               ))}

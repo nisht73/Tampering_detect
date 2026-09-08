@@ -14,7 +14,7 @@ const UserManagement = () => {
     setLoading(true);
     try {
       const res = await getUsers();
-      setUsers(res.data.items || res.data || []);
+      setUsers(res.data.data || []);
     } catch (error) {
       toast.error('Failed to load users');
     } finally {
@@ -88,7 +88,6 @@ const UserManagement = () => {
                           onChange={(e) => setEditRole(e.target.value)}
                           className="text-sm border-slate-300 rounded-md"
                         >
-                          <option value="USER">USER</option>
                           <option value="OFFICER">OFFICER</option>
                           <option value="ADMIN">ADMIN</option>
                         </select>

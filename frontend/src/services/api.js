@@ -38,11 +38,11 @@ export const createScreening = (data) => api.post('/screenings', data);
 export const getScreening = (screeningId) => api.get(`/screenings/${screeningId}`);
 export const getScreenings = (params) => api.get('/screenings', { params });
 
-export const getDashboardStats = () => api.get('/stats/dashboard');
+export const getDashboardStats = () => api.get('/dashboard/stats');
 
 export const getUsers = (params) => api.get('/users', { params });
 export const getUser = (id) => api.get(`/users/${id}`);
-export const updateUser = (id, data) => api.put(`/users/${id}`, data);
+export const updateUser = (id, data) => api.patch(`/users/${id}`, data);
 export const deleteUser = (id) => api.delete(`/users/${id}`);
 
 export const getAuditLogs = (params) => api.get('/audit-logs', { params });

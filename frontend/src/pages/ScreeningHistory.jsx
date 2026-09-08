@@ -29,8 +29,8 @@ const ScreeningHistory = () => {
           ...filters
         };
         const res = await getScreenings(params);
-        setScreenings(res.data.items || []);
-        setTotalPages(res.data.totalPages || 1);
+        setScreenings(res.data.data || []);
+        setTotalPages(res.data.pagination?.pages || 1);
       } catch (error) {
         console.error(error);
       } finally {
@@ -117,11 +117,11 @@ const ScreeningHistory = () => {
                   {screenings.length > 0 ? screenings.map((screening) => (
                     <tr 
                       key={screening._id || screening.id} 
-                      onClick={() => navigate(`/screening/${screening._id || screening.id}`)}
+                      onClick={() => navigate(`/screening/${screening.screeningId}`)}
                       className="hover:bg-slate-50 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
-                        {screening._id || screening.id}
+                        {screening.screeningId}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                         {new Date(screening.createdAt).toLocaleString()}
@@ -133,7 +133,7 @@ const ScreeningHistory = () => {
                         <StatusBadge status={screening.status} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <RiskBadge level={screening.riskLevel} />
+                        <RiskBadge level={screening.riskResult?.level} />
                       </td>
                     </tr>
                   )) : (

@@ -19,12 +19,21 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         const [statsRes, screeningsRes] = await Promise.all([
-          getDashboardStats().catch(() => ({ data: { total: 0, low: 0, medium: 0, high: 0, critical: 0, pending: 0 } })),
-          getScreenings({ limit: 10 }).catch(() => ({ data: { items: [] } }))
+          getDashboardStats().catch(() => ({ data: { success: true, data: { total: 0, pending: 0, byStatus: [], byRiskLevel: [], recent: [] } } })),
+          getScreenings({ limit: 10 }).catch(() => ({ data: { data: [] } }))
         ]);
         
-        setStats(statsRes.data);
-        setRecentScreenings(screeningsRes.data.items || []);
+        const raw = statsRes.data.data || statsRes.data;
+        // Transform byRiskLevel array into flat counts
+        const riskCounts = { low: 0, medium: 0, high: 0, critical: 0 };
+        if (raw.byRiskLevel) {
+          raw.byRiskLevel.forEach(item => {
+            const key = (item._id || '').toLowerCase();
+            if (riskCounts.hasOwnProperty(key)) riskCounts[key] = item.count;
+          });
+        }
+        setStats({ total: raw.total || 0, pending: raw.pending || 0, ...riskCounts });
+        setRecentScreenings(raw.recent || screeningsRes.data.data || []);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -126,12 +135,12 @@ const Dashboard = () => {
               <tbody className="bg-white divide-y divide-slate-200">
                 {recentScreenings.length > 0 ? recentScreenings.map((screening) => (
                   <tr 
-                    key={screening._id || screening.id} 
-                    onClick={() => navigate(`/screening/${screening._id || screening.id}`)}
+                    key={screening._id} 
+                    onClick={() => navigate(`/screening/${screening.screeningId}`)}
                     className="hover:bg-slate-50 cursor-pointer transition-colors"
                   >
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
-                      {(screening._id || screening.id).substring(0, 8)}...
+                      {screening.screeningId}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
                       {new Date(screening.createdAt).toLocaleDateString()}
@@ -143,7 +152,7 @@ const Dashboard = () => {
                       <StatusBadge status={screening.status} />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <RiskBadge level={screening.riskLevel} />
+                      <RiskBadge level={screening.riskResult?.level} />
                     </td>
                   </tr>
                 )) : (
