@@ -1,14 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { getUsers, updateUser, deleteUser } from '../../services/api';
-import Loading from '../../components/Loading';
-import toast from 'react-hot-toast';
-import { Shield, Trash2, Edit2 } from 'lucide-react';
+import PageHeader from '../../components/PageHeader';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Shield, Trash2, Edit2, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
 
-const UserManagement = () => {
+export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editRole, setEditRole] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -29,107 +37,136 @@ const UserManagement = () => {
   const handleUpdateRole = async (id) => {
     try {
       await updateUser(id, { role: editRole });
-      toast.success('Role updated');
+      toast.success('User role updated successfully');
       setEditingId(null);
       fetchUsers();
     } catch (error) {
-      toast.error('Update failed');
+      toast.error('Role update failed');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await deleteUser(id);
-      toast.success('User deleted');
+      await deleteUser(deleteTargetId);
+      toast.success('User deleted successfully');
+      setDeleteTargetId(null);
       fetchUsers();
     } catch (error) {
-      toast.error('Delete failed');
+      toast.error(error.response?.data?.message || 'Delete failed');
     }
   };
-
-  if (loading) return <Loading text="Loading users..." />;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-slate-900">User Management</h1>
-      </div>
+      <PageHeader
+        title="User Management"
+        description="Manage user access accounts and authorization roles"
+      />
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Created</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-200">
-              {users.map((user) => (
-                <tr key={user._id || user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
-                        <span className="text-indigo-700 font-medium text-sm">{user.name?.charAt(0).toUpperCase()}</span>
-                      </div>
-                      <div className="text-sm font-medium text-slate-900">{user.name}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {editingId === (user._id || user.id) ? (
-                      <div className="flex items-center space-x-2">
-                        <select 
-                          value={editRole} 
-                          onChange={(e) => setEditRole(e.target.value)}
-                          className="text-sm border-slate-300 rounded-md"
-                        >
-                          <option value="OFFICER">OFFICER</option>
-                          <option value="ADMIN">ADMIN</option>
-                        </select>
-                        <button onClick={() => handleUpdateRole(user._id || user.id)} className="text-green-600 hover:text-green-800 text-xs font-medium">Save</button>
-                        <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-slate-700 text-xs">Cancel</button>
-                      </div>
-                    ) : (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 
-                        user.role === 'OFFICER' ? 'bg-blue-100 text-blue-800' : 
-                        'bg-slate-100 text-slate-800'
-                      }`}>
-                        {user.role === 'ADMIN' && <Shield className="h-3 w-3 mr-1" />}
-                        {user.role}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
-                      onClick={() => { setEditingId(user._id || user.id); setEditRole(user.role); }}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(user._id || user.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
+      <Card className="border-slate-200/80 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User Name</TableHead>
+                  <TableHead>Email Address</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Created Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => {
+                  const userId = user._id || user.id;
+                  const isEditing = editingId === userId;
+
+                  return (
+                    <TableRow key={userId}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-3">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                            {user.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-slate-900">{user.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500">{user.email}</TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <div className="flex items-center space-x-2">
+                            <Select value={editRole} onValueChange={setEditRole}>
+                              <SelectTrigger className="h-8 w-32 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="OFFICER">OFFICER</SelectItem>
+                                <SelectItem value="ADMIN">ADMIN</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-600" onClick={() => handleUpdateRole(userId)}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400" onClick={() => setEditingId(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Badge variant={user.role === 'ADMIN' ? 'default' : 'secondary'} className="text-xs gap-1">
+                            {user.role === 'ADMIN' && <Shield className="h-3 w-3" />}
+                            {user.role}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500">
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-blue-600"
+                          onClick={() => {
+                            setEditingId(userId);
+                            setEditRole(user.role);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-red-600"
+                          onClick={() => setDeleteTargetId(userId)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteTargetId}
+        onOpenChange={(open) => !open && setDeleteTargetId(null)}
+        title="Delete User Account"
+        description="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete User"
+        onConfirm={handleDelete}
+      />
     </div>
   );
-};
-
-export default UserManagement;
+}

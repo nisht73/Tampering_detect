@@ -2,91 +2,116 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadDocument, createScreening } from '../services/api';
 import FileUpload from '../components/FileUpload';
+import PageHeader from '../components/PageHeader';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Shield, ChevronRight, Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
-const NewScreening = () => {
+export default function NewScreening() {
   const [compositeImage, setCompositeImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
     if (!compositeImage) {
-      toast.error('Please upload one image containing the documents to screen');
+      toast.error('Please upload an image containing document(s) to screen');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const documentIds = [];
-      let faceImageId = null;
-
       const formData = new FormData();
       formData.append('file', compositeImage);
       formData.append('documentType', 'composite');
+
       const uploadResponse = await uploadDocument(formData);
       documentIds.push(uploadResponse.data.data._id);
 
-      // Create Screening
-      const resScreening = await createScreening({ documentIds, faceImageId, documentType: 'composite' });
-      toast.success('Screening initiated successfully');
-      navigate(`/screening/${resScreening.data.data.screeningId}`);
+      const resScreening = await createScreening({
+        documentIds,
+        faceImageId: null,
+        documentType: 'composite',
+      });
 
+      toast.success('Document screening initiated successfully');
+      navigate(`/screening/${resScreening.data.data.screeningId}`);
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || 'Failed to submit screening');
+      toast.error(error.response?.data?.message || 'Failed to initiate screening');
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
-        <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-slate-100">
-          <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
-            <Shield className="h-6 w-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">New Document Screening</h2>
-            <p className="text-sm text-slate-500">Upload documents for AI tampering detection and verification</p>
-          </div>
-        </div>
+    <div className="max-w-3xl mx-auto space-y-6">
+      <PageHeader
+        title="New Document Screening"
+        description="Upload document image(s) for automated AI tampering detection and verification"
+      />
 
-        <div className="space-y-8">
-          <section>
-            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">Document image <span className="text-red-500">*</span></h3>
-            <FileUpload 
-              onFileSelect={setCompositeImage}
-              accept="image/jpeg,image/png,image/webp"
-              label="Upload one clear image containing all documents (for example, PAN and Aadhaar)"
-              preview={true}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <Card className="border-slate-200/80 shadow-md">
+          <CardHeader className="border-b border-slate-100 pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                <Shield className="h-6 w-6" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Document Upload</CardTitle>
+                <CardDescription>
+                  Supports JPG, JPEG, PNG or WebP images containing identity cards or documents.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-6 space-y-6">
+            <FileUpload
+              file={compositeImage}
+              setFile={setCompositeImage}
+              label="Select or Drop Document Image"
+              acceptTypesText="JPG, JPEG, PNG • Max 10 MB"
             />
-            <p className="mt-2 text-xs text-slate-500">The system separates visible documents, identifies likely PAN/Aadhaar cards, and runs OCR plus image-forensics checks on each one.</p>
-          </section>
-        </div>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !compositeImage}
-            className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                Start Screening
-                <ChevronRight className="h-5 w-5 ml-1" />
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 space-y-1.5">
+              <p className="font-semibold text-slate-800">What happens next?</p>
+              <ul className="list-disc list-inside space-y-1 text-slate-500">
+                <li>Automated AI document detection separates cards in the image</li>
+                <li>OCR extracts text fields (name, document numbers, DOB, expiry dates)</li>
+                <li>Error Level Analysis (ELA) and Structural Similarity checks detect tampering</li>
+                <li>Comprehensive risk assessment score and report generated</li>
+              </ul>
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex justify-end border-t border-slate-100 pt-4">
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || !compositeImage}
+              className="bg-blue-600 hover:bg-blue-700 font-semibold px-6 gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Start Screening
+                  <ChevronRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      </motion.div>
     </div>
   );
-};
-
-export default NewScreening;
+}

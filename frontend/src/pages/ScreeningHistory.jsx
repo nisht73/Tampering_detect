@@ -3,20 +3,27 @@ import { getScreenings } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import RiskBadge from '../components/RiskBadge';
 import StatusBadge from '../components/StatusBadge';
-import Loading from '../components/Loading';
-import { Search, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import EmptyState from '../components/EmptyState';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search, ChevronLeft, ChevronRight, PlusCircle, Filter } from 'lucide-react';
 
-const ScreeningHistory = () => {
+export default function ScreeningHistory() {
   const [screenings, setScreenings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filters, setFilters] = useState({
-    status: '',
-    riskLevel: '',
-    search: ''
+    status: 'ALL',
+    riskLevel: 'ALL',
+    search: '',
   });
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,7 +33,9 @@ const ScreeningHistory = () => {
         const params = {
           page,
           limit: 10,
-          ...filters
+          search: filters.search || undefined,
+          status: filters.status !== 'ALL' ? filters.status : undefined,
+          riskLevel: filters.riskLevel !== 'ALL' ? filters.riskLevel : undefined,
         };
         const res = await getScreenings(params);
         setScreenings(res.data.data || []);
@@ -37,153 +46,175 @@ const ScreeningHistory = () => {
         setLoading(false);
       }
     };
-    
-    // Add small debounce for search
+
     const timer = setTimeout(() => {
       fetchScreenings();
     }, 300);
     return () => clearTimeout(timer);
   }, [page, filters]);
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
-    setPage(1); // Reset to page 1 on filter change
+  const handleSearchChange = (e) => {
+    setFilters((prev) => ({ ...prev, search: e.target.value }));
+    setPage(1);
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-slate-400" />
-          </div>
-          <input
-            type="text"
-            name="search"
-            value={filters.search}
-            onChange={handleFilterChange}
-            placeholder="Search ID..."
-            className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          />
-        </div>
-        
-        <div className="flex gap-4 w-full md:w-auto">
-          <select
-            name="status"
-            value={filters.status}
-            onChange={handleFilterChange}
-            className="block w-full md:w-auto py-2 px-3 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            <option value="">All Statuses</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="PROCESSING">Processing</option>
-            <option value="FAILED">Failed</option>
-            <option value="REVIEW_REQUIRED">Review Required</option>
-          </select>
-          
-          <select
-            name="riskLevel"
-            value={filters.riskLevel}
-            onChange={handleFilterChange}
-            className="block w-full md:w-auto py-2 px-3 border border-slate-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          >
-            <option value="">All Risks</option>
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-            <option value="CRITICAL">Critical</option>
-          </select>
-        </div>
-      </div>
+      <PageHeader
+        title="Screening History"
+        description="Search and review past document screening requests"
+        action={
+          <Button onClick={() => navigate('/screening/new')} className="bg-blue-600 hover:bg-blue-700 font-semibold gap-2">
+            <PlusCircle className="h-4 w-4" /> New Screening
+          </Button>
+        }
+      />
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Filter and Search Toolbar Card */}
+      <Card className="border-slate-200/80 shadow-sm">
+        <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              type="text"
+              value={filters.search}
+              onChange={handleSearchChange}
+              placeholder="Search by Screening ID..."
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex gap-3 w-full md:w-auto">
+            <Select
+              value={filters.status}
+              onValueChange={(val) => {
+                setFilters((prev) => ({ ...prev, status: val }));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full md:w-44">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="PROCESSING">Processing</SelectItem>
+                <SelectItem value="FAILED">Failed</SelectItem>
+                <SelectItem value="REVIEW_REQUIRED">Review Required</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={filters.riskLevel}
+              onValueChange={(val) => {
+                setFilters((prev) => ({ ...prev, riskLevel: val }));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full md:w-44">
+                <SelectValue placeholder="All Risk Levels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Risk Levels</SelectItem>
+                <SelectItem value="LOW">Low Risk</SelectItem>
+                <SelectItem value="MEDIUM">Medium Risk</SelectItem>
+                <SelectItem value="HIGH">High Risk</SelectItem>
+                <SelectItem value="CRITICAL">Critical Risk</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Results Table Card */}
+      <Card className="border-slate-200/80 shadow-sm overflow-hidden">
         {loading ? (
-          <Loading text="Loading screenings..." />
-        ) : (
+          <div className="p-6 space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : screenings.length > 0 ? (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Risk Level</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {screenings.length > 0 ? screenings.map((screening) => (
-                    <tr 
-                      key={screening._id || screening.id} 
-                      onClick={() => navigate(`/screening/${screening.screeningId}`)}
-                      className="hover:bg-slate-50 cursor-pointer transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
-                        {screening.screeningId}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                        {new Date(screening.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                        {screening.documentType || 'Unknown'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status={screening.status} />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <RiskBadge level={screening.riskResult?.level} />
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-12 text-center text-sm text-slate-500">
-                        No screenings found matching the criteria
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Pagination */}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Screening ID</TableHead>
+                  <TableHead>Date & Time</TableHead>
+                  <TableHead>Document Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Risk Assessment</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {screenings.map((s) => (
+                  <TableRow
+                    key={s._id || s.screeningId}
+                    onClick={() => navigate(`/screening/${s.screeningId}`)}
+                    className="cursor-pointer hover:bg-slate-50/80"
+                  >
+                    <TableCell className="font-mono text-xs font-semibold text-blue-600">
+                      {s.screeningId}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">
+                      {new Date(s.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-xs font-medium text-slate-700 capitalize">
+                      {s.documentType || 'Composite'}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={s.status} />
+                    </TableCell>
+                    <TableCell>
+                      <RiskBadge level={s.riskResult?.level || s.overallResult} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" className="text-xs text-blue-600 hover:text-blue-800">
+                        View Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-slate-200 sm:px-6">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-slate-700">
-                      Page <span className="font-medium">{page}</span> of <span className="font-medium">{totalPages}</span>
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                      </button>
-                      <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <span className="sr-only">Next</span>
-                        <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                      </button>
-                    </nav>
-                  </div>
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                <span>
+                  Page <strong className="text-slate-800">{page}</strong> of <strong className="text-slate-800">{totalPages}</strong>
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               </div>
             )}
           </>
+        ) : (
+          <EmptyState
+            title="No screenings found"
+            description="No screening records match your current search and filter parameters."
+            actionLabel="Start New Screening"
+            onAction={() => navigate('/screening/new')}
+          />
         )}
-      </div>
+      </Card>
     </div>
   );
-};
-
-export default ScreeningHistory;
+}

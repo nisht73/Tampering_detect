@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from 'sonner';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
@@ -16,7 +16,7 @@ import AuditLogs from './pages/admin/AuditLogs';
 const App = () => {
   return (
     <>
-      <Toaster position="top-right" />
+      <Toaster position="top-right" richColors closeButton />
       <Routes>
         <Route path="/login" element={<Login />} />
         
@@ -36,6 +36,8 @@ const App = () => {
             </Route>
           </Route>
         </Route>
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </>
   );

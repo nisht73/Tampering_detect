@@ -2,9 +2,9 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Loading from './Loading';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
-const ProtectedRoute = ({ roles = [] }) => {
+export default function ProtectedRoute({ roles = [] }) {
   const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
@@ -21,6 +21,4 @@ const ProtectedRoute = ({ roles = [] }) => {
   }
 
   return <Outlet />;
-};
-
-export default ProtectedRoute;
+}

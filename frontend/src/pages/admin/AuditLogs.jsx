@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { getAuditLogs } from '../../services/api';
-import Loading from '../../components/Loading';
+import PageHeader from '../../components/PageHeader';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import EmptyState from '../../components/EmptyState';
+import { FileText } from 'lucide-react';
 
-const AuditLogs = () => {
+export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,69 +26,75 @@ const AuditLogs = () => {
     fetchLogs();
   }, []);
 
-  if (loading) return <Loading text="Loading audit logs..." />;
-
-  const getActionColor = (action) => {
-    if (!action) return 'bg-slate-100 text-slate-800';
-    if (action.includes('LOGIN') || action.includes('LOGOUT')) return 'bg-blue-100 text-blue-800';
-    if (action.includes('COMPLETED')) return 'bg-green-100 text-green-800';
-    if (action.includes('CREATED') || action.includes('UPLOADED')) return 'bg-indigo-100 text-indigo-800';
-    if (action.includes('FAILED')) return 'bg-red-100 text-red-800';
-    if (action.includes('REQUESTED')) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-slate-100 text-slate-800';
+  const getActionVariant = (action) => {
+    if (!action) return 'secondary';
+    if (action.includes('LOGIN') || action.includes('LOGOUT')) return 'info';
+    if (action.includes('COMPLETED')) return 'success';
+    if (action.includes('CREATED') || action.includes('UPLOADED')) return 'default';
+    if (action.includes('FAILED')) return 'destructive';
+    if (action.includes('REQUESTED')) return 'warning';
+    return 'secondary';
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">System Audit Logs</h1>
-      
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Timestamp</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Screening ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-200">
-              {logs.map((log) => (
-                <tr key={log._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                    {log.userId?.name || log.userId?.email || 'System'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {log.screeningId || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {log.status || '-'}
-                  </td>
-                </tr>
+      <PageHeader
+        title="System Audit Logs"
+        description="Review security logs, user authentication, and screening processing events"
+      />
+
+      <Card className="border-slate-200/80 shadow-sm overflow-hidden">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
-              {logs.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-sm text-slate-500">
-                    No audit logs available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          ) : logs.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>User / Actor</TableHead>
+                  <TableHead>Action Event</TableHead>
+                  <TableHead>Screening ID</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log._id}>
+                    <TableCell className="text-xs text-slate-500 font-mono">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold text-slate-800">
+                      {log.userId?.name || log.userId?.email || 'System Process'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getActionVariant(log.action)} className="font-mono text-[11px]">
+                        {log.action}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono text-blue-600">
+                      {log.screeningId || '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-600 font-medium">
+                      {log.status || '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <EmptyState
+              icon={FileText}
+              title="No audit logs available"
+              description="System activities will be recorded here as operations occur."
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default AuditLogs;
+}

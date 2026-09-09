@@ -1,113 +1,121 @@
-import React, { useState, useRef } from 'react';
-import { Upload, X, File, Image as ImageIcon } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useCallback, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { Upload, X, File, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-const FileUpload = ({ onFileSelect, accept = '*/*', maxSize = 10485760, label = 'Upload File', preview = false }) => {
-  const [dragActive, setDragActive] = useState(false);
-  const [file, setFile] = useState(null);
+const ACCEPTED_TYPES = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+  'application/pdf': ['.pdf'],
+};
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+export default function FileUpload({ file, setFile, onFileSelect, label, acceptTypesText = 'PNG, JPG, JPEG, PDF • Max 10 MB' }) {
   const [previewUrl, setPreviewUrl] = useState(null);
-  const inputRef = useRef(null);
 
-  const handleFile = (selectedFile) => {
+  const handleFileSelect = useCallback((selectedFile) => {
     if (!selectedFile) return;
 
-    if (selectedFile.size > maxSize) {
-      toast.error(`File size exceeds ${(maxSize / (1024 * 1024)).toFixed(1)}MB limit`);
+    if (selectedFile.size > MAX_SIZE) {
+      toast.error('File size exceeds the 10 MB limit.');
       return;
     }
 
-    setFile(selectedFile);
-    onFileSelect(selectedFile);
+    const setter = setFile || onFileSelect;
+    if (setter) setter(selectedFile);
 
-    if (preview && selectedFile.type.startsWith('image/')) {
+    if (selectedFile.type.startsWith('image/')) {
       const url = URL.createObjectURL(selectedFile);
       setPreviewUrl(url);
+    } else {
+      setPreviewUrl(null);
     }
-  };
+  }, [setFile, onFileSelect]);
 
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
+  const onDrop = useCallback((acceptedFiles, fileRejections) => {
+    if (fileRejections.length > 0) {
+      const rej = fileRejections[0];
+      if (rej.errors[0]?.code === 'file-too-large') {
+        toast.error('File size exceeds the 10 MB limit.');
+      } else {
+        toast.error('Unsupported file format. Supported: JPG, JPEG, PNG, WEBP, PDF.');
+      }
+      return;
     }
-  };
+    if (acceptedFiles.length > 0) {
+      handleFileSelect(acceptedFiles[0]);
+    }
+  }, [handleFileSelect]);
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleChange = (e) => {
-    e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
-    }
-  };
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: ACCEPTED_TYPES,
+    maxSize: MAX_SIZE,
+    multiple: false,
+  });
 
   const removeFile = (e) => {
     e.stopPropagation();
-    setFile(null);
+    const setter = setFile || onFileSelect;
+    if (setter) setter(null);
     setPreviewUrl(null);
-    onFileSelect(null);
-    if (inputRef.current) inputRef.current.value = '';
   };
+
+  const currentFile = file;
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-medium text-slate-700 mb-2">{label}</label>
-      
-      {!file ? (
-        <div 
-          className={`relative border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${
-            dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400'
+      {label && <label className="block text-sm font-medium text-slate-700 mb-2">{label}</label>}
+
+      {!currentFile ? (
+        <div
+          {...getRootProps()}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors flex flex-col items-center justify-center bg-white ${
+            isDragActive
+              ? 'border-blue-500 bg-blue-50/50 text-blue-600'
+              : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50/50'
           }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
         >
-          <input
-            ref={inputRef}
-            type="file"
-            className="hidden"
-            accept={accept}
-            onChange={handleChange}
-          />
-          <Upload className="h-10 w-10 text-slate-400 mb-3" />
-          <p className="text-sm font-medium text-slate-700">Click to upload or drag and drop</p>
-          <p className="text-xs text-slate-500 mt-1">
-            Max size: {(maxSize / (1024 * 1024)).toFixed(0)}MB
+          <input {...getInputProps()} />
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-full mb-3">
+            <Upload className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-semibold text-slate-800">
+            {isDragActive ? 'Drop your document here' : 'Click to upload or drag & drop'}
           </p>
+          <p className="text-xs text-slate-400 mt-1">{acceptTypesText}</p>
         </div>
       ) : (
-        <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between">
-          <div className="flex items-center space-x-4 w-full">
+        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm flex items-center justify-between">
+          <div className="flex items-center space-x-4 min-w-0 flex-1">
             {previewUrl ? (
-              <div className="h-16 w-16 rounded overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
-                <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
-              </div>
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="h-16 w-16 object-cover rounded-lg border border-slate-200 flex-shrink-0"
+              />
             ) : (
-              <div className="h-12 w-12 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
-                {file.type.startsWith('image/') ? <ImageIcon className="h-6 w-6 text-slate-500" /> : <File className="h-6 w-6 text-slate-500" />}
+              <div className="h-14 w-14 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                <File className="h-7 w-7" />
               </div>
             )}
-            <div className="flex-1 min-w-0 pr-4">
-              <p className="text-sm font-medium text-slate-900 truncate">{file.name}</p>
-              <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-900 truncate">{currentFile.name}</p>
+                <span className="inline-flex items-center text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Ready
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">{(currentFile.size / 1024 / 1024).toFixed(2)} MB</p>
             </div>
           </div>
-          <button 
+          <button
             type="button"
             onClick={removeFile}
-            className="p-1.5 mt-3 sm:mt-0 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-3"
+            title="Remove file"
           >
             <X className="h-5 w-5" />
           </button>
@@ -115,6 +123,4 @@ const FileUpload = ({ onFileSelect, accept = '*/*', maxSize = 10485760, label = 
       )}
     </div>
   );
-};
-
-export default FileUpload;
+}

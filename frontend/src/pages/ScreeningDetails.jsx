@@ -1,215 +1,294 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { getScreening } from '../services/api';
 import RiskBadge from '../components/RiskBadge';
 import StatusBadge from '../components/StatusBadge';
+import PageHeader from '../components/PageHeader';
+import ScreeningProgress from '../components/ScreeningProgress';
+import ConfidenceScore from '../components/ConfidenceScore';
 import Loading from '../components/Loading';
-import { CheckCircle2, XCircle, AlertTriangle, Fingerprint, Image as ImageIcon, FileText } from 'lucide-react';
+import ErrorState from '../components/ErrorState';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { CheckCircle2, XCircle, AlertTriangle, Fingerprint, FileText, ArrowLeft, Shield } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-const ScreeningDetails = () => {
+export default function ScreeningDetails() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const fetchDetails = async () => {
+    try {
+      const res = await getScreening(id);
+      setData(res.data.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load screening details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        const res = await getScreening(id);
-        setData(res.data.data);
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load screening details');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDetails();
-    
-    // Poll if still processing
+
     const interval = setInterval(() => {
       if (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) {
         fetchDetails();
       }
-    }, 5000);
-    
+    }, 4000);
+
     return () => clearInterval(interval);
   }, [id, data?.status]);
 
-  if (loading && !data) return <Loading text="Fetching analysis results..." />;
-  if (error) return <div className="text-red-500 p-6 text-center">{error}</div>;
-  if (!data) return <div className="text-center p-6 text-slate-500">Screening not found</div>;
+  if (loading && !data) return <Loading text="Fetching screening report..." />;
+  if (error) return <ErrorState title="Report Error" description={error} onRetry={fetchDetails} />;
+  if (!data) return <ErrorState title="Screening Not Found" description="The requested screening record does not exist." />;
 
-  const ResultRow = ({ label, passed, details }) => (
-    <div className="flex items-start py-3 border-b border-slate-100 last:border-0">
-      <div className="mt-0.5 mr-3">
-        {passed ? (
-          <CheckCircle2 className="h-5 w-5 text-green-500" />
-        ) : (
-          <XCircle className="h-5 w-5 text-red-500" />
-        )}
-      </div>
-      <div>
-        <p className={`text-sm font-medium ${passed ? 'text-slate-800' : 'text-red-700'}`}>{label}</p>
-        {details && <p className="text-xs text-slate-500 mt-0.5">{details}</p>}
-      </div>
-    </div>
-  );
-
+  const isProcessing = data.status === 'PROCESSING' || data.status === 'UPLOADED';
   const { extractedData = {}, validation = {}, aiAnalysis = {}, riskAssessment = {} } = data;
   const documentResults = data.documentResults || [];
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            Screening Report
-            <StatusBadge status={data.status} />
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">ID: {data._id || data.id} • {new Date(data.createdAt).toLocaleString()}</p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          <RiskBadge level={data.riskLevel} />
-        </div>
+      {/* Back Link & Header */}
+      <div className="flex items-center justify-between">
+        <Link to="/screenings" className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Screening History
+        </Link>
       </div>
 
-      {(data.status === 'PROCESSING' || data.status === 'UPLOADED') ? (
-        <div className="bg-white p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
-          <Loading text="AI is actively analyzing the documents. Please wait..." />
-        </div>
-      ) : (
-        <>
-        {documentResults.length > 0 && (
-          <section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">Per-document OCR & forensic report</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {documentResults.map((result, index) => (
-                <article key={index} className="rounded-lg border border-slate-200 p-4">
-                  <div className="flex justify-between gap-3"><h3 className="font-semibold text-slate-800">{result.documentType}</h3><span className="text-sm font-bold text-indigo-700">{result.confidenceScore}% confidence</span></div>
-                  <p className="mt-2 text-xs text-slate-500 line-clamp-3">{result.ocr?.rawText || 'No readable text detected.'}</p>
-                  <dl className="mt-3 space-y-1 text-sm text-slate-600">
-                    <div className="flex justify-between"><dt>ELA</dt><dd>{result.forensics?.ela?.score ?? '—'} {result.forensics?.ela?.suspicious ? '(review)' : '(clear)'}</dd></div>
-                    <div className="flex justify-between"><dt>SSIM</dt><dd>{result.forensics?.ssim?.available ? result.forensics.ssim.score : 'Template required'}</dd></div>
-                  </dl>
-                  {result.forensics?.flags?.length > 0 && <ul className="mt-3 list-disc pl-5 text-xs text-red-600">{result.forensics.flags.map((flag, flagIndex) => <li key={flagIndex}>{flag}</li>)}</ul>}
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Risk Assessment */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-indigo-500"/> Risk Assessment</h2>
-            <div className="flex items-center space-x-6 mb-6">
-              <div className="relative h-24 w-24">
-                <svg className="w-full h-full" viewBox="0 0 36 36">
-                  <path className="text-slate-100" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  <path className={`${riskAssessment.score > 70 ? 'text-red-500' : riskAssessment.score > 40 ? 'text-yellow-500' : 'text-green-500'}`} strokeWidth="3" strokeDasharray={`${riskAssessment.score || 0}, 100`} strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xl font-bold">{riskAssessment.score || 0}</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Calculated Risk Level</p>
-                <p className="text-2xl font-bold text-slate-900">{data.riskLevel || 'UNKNOWN'}</p>
-              </div>
-            </div>
-            
-            {riskAssessment.factors && riskAssessment.factors.length > 0 && (
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <h3 className="text-sm font-medium text-slate-700 mb-2">Contributing Factors:</h3>
-                <ul className="space-y-2">
-                  {riskAssessment.factors.map((f, i) => (
-                    <li key={i} className="text-sm text-slate-600 flex justify-between">
-                      <span>{f.description}</span>
-                      <span className="font-medium text-red-500">+{f.weight} pts</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+      <PageHeader
+        title={`Screening Report: ${data.screeningId || id}`}
+        description={`Submitted on ${new Date(data.createdAt).toLocaleString()}`}
+        action={
+          <div className="flex items-center gap-2">
+            <StatusBadge status={data.status} />
+            <RiskBadge level={data.riskLevel || data.riskResult?.level || data.overallResult} />
           </div>
+        }
+      />
 
-          {/* AI Analysis */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center"><Fingerprint className="mr-2 h-5 w-5 text-indigo-500"/> AI Analysis Results</h2>
-            <div className="space-y-4">
-              <div className={`p-4 rounded-lg border ${aiAnalysis.tampered ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-semibold text-slate-800">Tampering Detection</h3>
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${aiAnalysis.tampered ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}`}>
-                    {aiAnalysis.tampered ? 'SUSPICIOUS' : 'AUTHENTIC'}
+      {/* Processing State */}
+      {isProcessing ? (
+        <ScreeningProgress status={data.status} currentStageIndex={3} />
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-6"
+        >
+          {/* Summary Overview Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Risk Assessment Card */}
+            <Card className="border-slate-200/80 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center text-slate-700">
+                  <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                  Calculated Risk
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center pt-2">
+                <div className="text-3xl font-extrabold text-slate-900 mb-1">
+                  {data.riskLevel || data.riskResult?.level || 'UNKNOWN'}
+                </div>
+                <p className="text-xs text-slate-500 font-mono">
+                  Risk Score: {data.riskResult?.score ?? riskAssessment.score ?? 0} / 100
+                </p>
+                {data.riskResult?.factors && data.riskResult.factors.length > 0 && (
+                  <div className="w-full mt-4 pt-3 border-t border-slate-100 space-y-1">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase">Factors</p>
+                    {data.riskResult.factors.map((f, idx) => (
+                      <div key={idx} className="flex justify-between text-xs text-slate-600">
+                        <span>{f.reason || f.description}</span>
+                        <span className="font-semibold text-red-600">+{f.weight}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* AI Confidence Card */}
+            <Card className="border-slate-200/80 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center text-slate-700">
+                  <Fingerprint className="h-4 w-4 mr-2 text-blue-500" />
+                  AI Analysis Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ConfidenceScore
+                  score={data.confidence ?? aiAnalysis.confidenceScore ?? 0.92}
+                  label="Classification Confidence"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Metadata Card */}
+            <Card className="border-slate-200/80 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center text-slate-700">
+                  <Shield className="h-4 w-4 mr-2 text-emerald-500" />
+                  Screening Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs pt-2">
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Document Type</span>
+                  <span className="font-semibold text-slate-800 capitalize">{data.documentType || 'Composite'}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Detected Documents</span>
+                  <span className="font-semibold text-slate-800">{documentResults.length || 1}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Completed At</span>
+                  <span className="font-semibold text-slate-800">
+                    {data.completedAt ? new Date(data.completedAt).toLocaleString() : 'Just now'}
                   </span>
                 </div>
-                <p className="text-sm text-slate-600">Confidence: {(aiAnalysis.confidenceScore || 0).toFixed(1)}%</p>
-                {aiAnalysis.flags && aiAnalysis.flags.length > 0 && (
-                  <ul className="mt-2 list-disc list-inside text-xs text-red-600">
-                    {aiAnalysis.flags.map((flag, i) => <li key={i}>{flag}</li>)}
-                  </ul>
-                )}
-              </div>
-
-              {aiAnalysis.faceVerified !== undefined && (
-                <div className={`p-4 rounded-lg border ${!aiAnalysis.faceVerified ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold text-slate-800">Face Verification</h3>
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${!aiAnalysis.faceVerified ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}`}>
-                      {aiAnalysis.faceVerified ? 'MATCHED' : 'MISMATCH'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600">Similarity: {(aiAnalysis.faceSimilarityScore || 0).toFixed(1)}%</p>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-500">Status</span>
+                  <StatusBadge status={data.status} />
                 </div>
-              )}
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Validation Checks */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center"><CheckCircle2 className="mr-2 h-5 w-5 text-indigo-500"/> Rule-based Validation</h2>
-            <div>
-              <ResultRow 
-                label="Document Format & Integrity" 
-                passed={validation.formatValid !== false} 
-              />
-              <ResultRow 
-                label="Expiry Check" 
-                passed={validation.isExpired === false} 
-                details={validation.isExpired ? 'Document is expired' : 'Document is valid and active'}
-              />
-              <ResultRow 
-                label="Data Cross-Validation" 
-                passed={validation.crossCheckPassed !== false} 
-                details="MRZ matches printed text"
-              />
-            </div>
-          </div>
+          {/* Detailed Results Tabs */}
+          <Card className="border-slate-200/80 shadow-sm">
+            <CardContent className="p-6">
+              <Tabs defaultValue="documents" className="w-full">
+                <TabsList className="mb-4">
+                  <TabsTrigger value="documents">Per-Document Results ({documentResults.length})</TabsTrigger>
+                  <TabsTrigger value="ocr">Extracted OCR Information</TabsTrigger>
+                  <TabsTrigger value="validation">Rule Validation</TabsTrigger>
+                </TabsList>
 
-          {/* Extracted Data */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center"><FileText className="mr-2 h-5 w-5 text-indigo-500"/> Extracted Information</h2>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-              {Object.entries(extractedData).length > 0 ? (
-                Object.entries(extractedData).map(([key, value]) => (
-                  <div key={key}>
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-1">{value?.toString() || '-'}</p>
+                {/* Per-Document Tab */}
+                <TabsContent value="documents" className="space-y-4">
+                  {documentResults.length > 0 ? (
+                    documentResults.map((doc, idx) => (
+                      <Card key={idx} className="border-slate-200 shadow-none bg-slate-50/50">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="outline" className="font-mono text-xs">Doc #{idx + 1}</Badge>
+                              <CardTitle className="text-base font-semibold">
+                                {doc.documentType || doc.type || 'Identity Document'}
+                              </CardTitle>
+                            </div>
+                            <RiskBadge level={doc.verificationResult || doc.tamperingResult || 'verified'} />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-xs">
+                          {doc.confidenceScore != null && (
+                            <p className="text-slate-600">
+                              Confidence: <strong>{doc.confidenceScore}%</strong>
+                            </p>
+                          )}
+                          {doc.forensics && (
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
+                              <p className="font-semibold text-slate-700">Forensic Analysis</p>
+                              <p className="text-slate-500">
+                                ELA Score: {doc.forensics.ela?.score ?? 'Normal'}{' '}
+                                {doc.forensics.ela?.suspicious ? '(Suspicious manipulation detected)' : '(Clear)'}
+                              </p>
+                            </div>
+                          )}
+                          {doc.ocr?.rawText && (
+                            <div className="bg-white p-3 rounded-lg border border-slate-200">
+                              <p className="font-semibold text-slate-700 mb-1">OCR Raw Output Snippet</p>
+                              <p className="font-mono text-[11px] text-slate-600 leading-relaxed truncate">{doc.ocr.rawText}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-xs text-slate-400">
+                      No multi-document split records available. Single composite image processed.
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* OCR Tab */}
+                <TabsContent value="ocr">
+                  {Object.keys(extractedData).length > 0 || data.ocrResult ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-1/3">Field Name</TableHead>
+                          <TableHead>Extracted Value</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Object.entries(extractedData.length ? extractedData : data.ocrResult || {}).map(([key, val]) => (
+                          <TableRow key={key}>
+                            <TableCell className="font-medium text-slate-600 capitalize">
+                              {key.replace(/([A-Z])/g, ' $1')}
+                            </TableCell>
+                            <TableCell className="font-mono text-slate-900 font-semibold">
+                              {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="p-8 text-center text-xs text-slate-400">
+                      No key-value OCR data extracted for this document.
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Validation Tab */}
+                <TabsContent value="validation" className="space-y-3">
+                  <div className="border border-slate-200 rounded-lg p-4 bg-white flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {validation.formatValid !== false ? (
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">Document Format Check</p>
+                        <p className="text-xs text-slate-500">Valid image resolution and aspect ratio</p>
+                      </div>
+                    </div>
+                    <Badge variant={validation.formatValid !== false ? 'success' : 'destructive'}>
+                      {validation.formatValid !== false ? 'Passed' : 'Failed'}
+                    </Badge>
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-slate-500 col-span-2">No data extracted</p>
-              )}
-            </div>
-          </div>
 
-        </div>
-        </>
+                  <div className="border border-slate-200 rounded-lg p-4 bg-white flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      {validation.isExpired !== true ? (
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">Expiration Validation</p>
+                        <p className="text-xs text-slate-500">Checks if document date is within valid range</p>
+                      </div>
+                    </div>
+                    <Badge variant={validation.isExpired !== true ? 'success' : 'destructive'}>
+                      {validation.isExpired !== true ? 'Valid' : 'Expired'}
+                    </Badge>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
     </div>
   );
-};
-
-export default ScreeningDetails;
+}

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { login as apiLogin, register as apiRegister, getMe } from '../services/api';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const AuthContext = createContext(null);
 
@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       setToken(token);
       setUser(userData);
+      toast.success('Welcome back!');
       return true;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
@@ -48,6 +49,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       setToken(token);
       setUser(userData);
+      toast.success('Account created successfully');
       return true;
     } catch (error) {
       toast.error(error.response?.data?.message || 'Registration failed');
@@ -59,6 +61,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    toast.info('Logged out');
     window.location.href = '/login';
   };
 
@@ -80,3 +83,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+export { AuthContext };
